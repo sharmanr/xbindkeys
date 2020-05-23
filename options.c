@@ -178,7 +178,7 @@ get_options (int argc, char **argv)
       if (rc_file != NULL)
 	{
 	  strncpy (rc_file, home, sizeof (rc_file) - 20);
-	  strncat (rc_file, "/.xbindkeysrc", sizeof (rc_file));
+	  strncat (rc_file, "/.xbindkeysrc", 20);
 	}
     }
 
@@ -190,7 +190,7 @@ get_options (int argc, char **argv)
       if (rc_guile_file != NULL)
 	{
 	  strncpy (rc_guile_file, home, sizeof (rc_guile_file) - 20);
-	  strncat (rc_guile_file, "/.xbindkeysrc.scm", sizeof (rc_guile_file));
+	  strncat (rc_guile_file, "/.xbindkeysrc.scm", 20);
 	}
     }
 #endif

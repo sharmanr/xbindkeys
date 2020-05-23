@@ -257,17 +257,19 @@ void
 set_keysym (Keys_t * key, EventType_t event_type, KeySym keysym,
 	    unsigned int modifier, char *command, SCM function)
 {
+	int size;
+
   key->type = SYM;
   key->event_type = event_type;
   key->key.sym = keysym;
   key->modifier = modifier;
 
   if (command != NULL)
-    {
-      key->command = (char *) malloc ((strlen (command) + 1) * sizeof (char));
-
+	{
+      size = (strlen (command) + 1) * sizeof (char);
+      key->command = (char *) malloc (size);
       if (key->command != NULL)
-	strncpy (key->command, command, strlen (command) + 1);
+        strncpy (key->command, command, size);
     }
   else
     {
@@ -275,30 +277,25 @@ set_keysym (Keys_t * key, EventType_t event_type, KeySym keysym,
     }
 
   key->function = function;
-
-  //  printf("******************* ICICICICICI *********************\n");
-  //#ifdef GUILE_FLAG
-  //  printf("  name=%d\n", SCM_IMP (key->function));
-  //#endif
-
-  //  scm_permanent_object (key->function);
 }
 
 void
 set_keycode (Keys_t * key, EventType_t event_type, KeyCode keycode,
 	     unsigned int modifier, char *command, SCM function)
 {
+  int size;
+
   key->type = CODE;
   key->event_type = event_type;
   key->key.code = keycode;
   key->modifier = modifier;
 
   if (command != NULL)
-    {
-      key->command = (char *) malloc ((strlen (command) + 1) * sizeof (char));
-
+	  {
+      size = (strlen (command) + 1) * sizeof (char);
+      key->command = (char *) malloc (size);
       if (key->command != NULL)
-	strncpy (key->command, command, strlen (command) + 1);
+        strncpy (key->command, command, size);
     }
   else
     {
@@ -313,6 +310,8 @@ void
 set_button (Keys_t * key, EventType_t event_type, unsigned int button,
 	    unsigned int modifier, char *command, SCM function)
 {
+  int size;
+
   key->type = BUTTON;
   key->event_type = event_type;
   key->key.button = button;
@@ -320,10 +319,10 @@ set_button (Keys_t * key, EventType_t event_type, unsigned int button,
 
   if (command != NULL)
     {
-      key->command = (char *) malloc ((strlen (command) + 1) * sizeof (char));
-
+      size = (strlen (command) + 1) * sizeof (char);
+      key->command = (char *) malloc (size);
       if (key->command != NULL)
-	strncpy (key->command, command, strlen (command) + 1);
+        strncpy (key->command, command, size);
     }
   else
     {
