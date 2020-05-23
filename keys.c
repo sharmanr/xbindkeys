@@ -105,6 +105,9 @@ add_key (KeyType_t type, EventType_t event_type, KeySym keysym, KeyCode keycode,
 
   modifier &= ~(numlock_mask | capslock_mask | scrolllock_mask);
 
+#ifdef GUILE_FLAG
+  if(function) scm_gc_protect_object(function);
+#endif
   /* set key */
   if (type == SYM)
     {
@@ -344,6 +347,9 @@ free_key (Keys_t * key)
   if (key->command != NULL)
     free (key->command);
 
+#ifdef GUILE_FLAG
+  if(key->function) scm_gc_unprotect_object(key->function);
+#endif
   key->function = 0;
 }
 
