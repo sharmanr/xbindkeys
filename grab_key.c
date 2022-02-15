@@ -78,11 +78,18 @@ static void
 my_grab_key (Display * dpy, KeyCode keycode, unsigned int modifier,
 	     Window win)
 {
+  int keyboard_grab_mode;
+
+  /* Setting keyboard_grab_mode to GrabModeSync can cause lockups
+   * if trying to debug the program.  Setting it to GrabModeAsync avoids that,
+   * but means we can't pass the original event to the program if condition fails.
+   */
+  keyboard_grab_mode = grab_sync ? GrabModeSync : GrabModeAsync;
+
   modifier &= ~(numlock_mask | capslock_mask | scrolllock_mask);
 
-
   XGrabKey (dpy, keycode, modifier, (win ? win : DefaultRootWindow (dpy)),
-	    False, GrabModeAsync, GrabModeAsync);
+	    False, GrabModeAsync, keyboard_grab_mode);
 
   if (modifier == AnyModifier)
     return;
@@ -130,11 +137,15 @@ static void
 my_grab_button (Display * dpy, unsigned int button, unsigned int modifier,
 		Window win)
 {
+  int pointer_grab_mode;
+
+  pointer_grab_mode = grab_sync ? GrabModeSync : GrabModeAsync;
+
   modifier &= ~(numlock_mask | capslock_mask | scrolllock_mask);
 
   XGrabButton (dpy, button, modifier, (win ? win : DefaultRootWindow (dpy)),
 	       False, ButtonPressMask | ButtonReleaseMask,
-	       GrabModeAsync, GrabModeAsync, None, None);
+	       pointer_grab_mode, GrabModeAsync, None, None);
 
   if (modifier == AnyModifier)
     return;

@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <X11/keysym.h>
+#include <regex.h>
 #include "xbindkeys.h"
 #include "keys.h"
 #include "config.h"
@@ -37,10 +38,15 @@ Keys_t *keys;
 
 extern char rc_file[512];
 
+Condition_t no_condition = { CONDITION_NONE };
+Condition_t func_condition = { CONDITION_SCM_FUNC };
+
 static char *modifier_string[] = { "Control", "Shift", "Alt", "Mod2",
   "Mod3", "Mod4", "Mod5"
 };
 
+char *condition_strings[] = { "None", "Match", "Exclude" };
+char *match_strings[] = { "None", "File", "Class", "Name"};
 
 int
 init_keys (void)
@@ -72,7 +78,8 @@ close_keys (void)
 
 int
 add_key (KeyType_t type, EventType_t event_type, KeySym keysym, KeyCode keycode,
-	 unsigned int button, unsigned int modifier, char *command, SCM function)
+	 unsigned int button, unsigned int modifier, char *command, SCM function,
+	 Condition_t condition)
 {
   Keys_t *keys_bis = NULL;
   int i;
@@ -122,6 +129,8 @@ add_key (KeyType_t type, EventType_t event_type, KeySym keysym, KeyCode keycode,
       set_keycode (&keys[nb_keys], event_type, keycode, modifier, command, function);
     }
 
+  keys[nb_keys].condition = condition;
+    
   /* new key */
   nb_keys += 1;
 
@@ -249,6 +258,16 @@ print_key (Display * d, Keys_t * key)
                       XKeysymToString (*XGetKeyboardMapping(d, key->key.code, 1, &keysyms_per_keycode_return)) : "NoSymbol");
 	    }
 	}
+      if (key->condition.required != CONDITION_NONE)
+	{
+	  if (key->condition.required == CONDITION_SCM_FUNC)
+	    printf("Condition: guile function\n");
+	  else
+	    printf ("Condition:  %s must %s %s\n",
+		    match_strings[key->condition.match],
+		    key->condition.required == CONDITION_MATCH ? "match" : "not match",
+		    key->condition.string);
+	}
     }
 }
 
@@ -346,6 +365,11 @@ free_key (Keys_t * key)
   if (key->command != NULL)
     free (key->command);
 
+  if (key->condition.required >= CONDITION_MATCH)
+    {
+      free (key->condition.string);
+    }
+  
 #ifdef GUILE_FLAG
   if(key->function) scm_gc_unprotect_object(key->function);
 #endif
@@ -409,11 +433,6 @@ remove_key (KeyType_t type, EventType_t event_type, KeySym keysym, KeyCode keyco
 }
 
 
-
-
-
-
-
 void
 run_command (char *command)
 {
@@ -447,19 +466,42 @@ run_command (char *command)
 }
 
 
-void
-start_command_key (Keys_t * key)
+int
+start_command_key (Keys_t * key, Window window)
 {
+  int rc = 1;
+  SCM scm_rc;
+  
   if (key->command == NULL)
     {
 #ifdef GUILE_FLAG
       if (key->function != 0)
 	{
-	  scm_call_0 (key->function);
+	  if (verbose)
+	    printf("start_command_key: window = 0x%lx\n", window);
+	  if (key->condition.required == CONDITION_SCM_FUNC)
+	    {
+	      if (command_delay)
+		usleep(command_delay * 1000);
+	      scm_rc = scm_call_0 (key->function);
+	      rc = scm_is_true(scm_rc);
+	      if (verbose)
+		printf("guile condition function returned %d\n", rc);
+	    }
+	  else
+	    {
+	      if (command_delay)
+		usleep(command_delay * 1000);
+	      scm_call_0 (key->function);
+	    }
 	}
 #endif
-      return;
+      return rc;
     }
 
+  if (command_delay)
+    usleep(command_delay * 1000);
   run_command (key->command);
+  
+  return rc;
 }

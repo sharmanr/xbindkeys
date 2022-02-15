@@ -3,7 +3,7 @@
 # xbindkeys configuration #
 ###########################
 #
-# Version: 1.8.3
+# Version: 1.8.7+patch-condition
 #
 # If you edit this file, do not forget to uncomment any lines
 # that you change.
@@ -12,11 +12,15 @@
 # To specify a key, you can use 'xbindkeys --key' or
 # 'xbindkeys --multikey' and put one of the two lines in this file.
 #
-# The format of a command line is:
+# The format of a command line is either:
 #    "command to start"
 #       associated key
 #
-#
+# or (see below for explanations about conditions):
+#    "command to start"
+#       %condition type string-to-match
+#       associated key
+
 # A list of keys is in /usr/include/X11/keysym.h and in
 # /usr/include/X11/keysymdef.h
 # The XK_ is not needed.
@@ -31,11 +35,87 @@
 
 # By defaults, xbindkeys does not pay attention with the modifiers
 # NumLock, CapsLock and ScrollLock.
-# Uncomment the lines above if you want to pay attention to them.
+# Uncomment the lines below if you want to pay attention to them.
 
 #keystate_numlock = enable
 #keystate_capslock = enable
 #keystate_scrolllock= enable
+
+
+# To use a command such as xdotool to send a different key it may
+# require the window_id where the event originated.
+# By uncommenting the line
+
+#windowidenv = W
+
+# the windowid is made available in environment variable,
+# W in this case.  
+
+# This allow commands such as "xdotool key --window $W Right"
+
+# (A value of WINDOW might be better.)
+
+
+
+# Conditions:
+
+# A condition line has the format
+#   %qualifier type target1
+
+# The qualifier is either WHEN or EXCLUDE.
+
+# The type is used to derive a string from the awindow where the event
+# originated from. The derived string is:
+#     * the window name (WM_NAME property) if type is NAME;
+#     * the window class (WM_CLASS property) if type is CLASS;
+#     * the window's program's filename as determined from the pid
+#       (window's _NET_WM_PID property) if type is FILE.
+
+# The target is an extended regexp (in the style of egrep).
+
+# The condition is true if
+#   the qualifier is WHEN and there is a match, or
+#   the qualifier is EXCLUDE and there is no match.
+
+# If the condition is true then the comand is executed.
+
+# Uncomment one of these two lines to control the behaviour when
+# the condition evalues to false:
+#
+#fallback = discard
+#fallback = pass
+#
+# Specifying discard means the event is ignored.
+# Specifying pass means the event is passed to the window as normal
+# (as if xkeybindings was not in effect).
+
+
+# 
+# The optional condition line is of the form
+#	%condition type target
+# where:
+#   condition is either WHEN or EXCLUDE
+#   type is either FILE, CLASS or NAME
+#   string is a string (without quotes) to match
+# Example:
+# %WHEN FILE emacs
+#
+# The target is a regexp (in the style of egrep) and is compared with
+# a string is that is derived based on the current window.
+# This derived string is:
+#   the class (the WM_CLASS property) when type is CLASS, 
+#   the name (the WM_NAME property) when type is NAME,  and
+#   the program file found from the pid (the _NET_WP_PID property).
+#   when the class FILE.
+# This string is compared with the target regexp.
+
+# If the condtion is WHEN, then the command is excuted if the 
+# derived string matches the target regep;
+# if the condition is EXCLUDE, then the command is executed if
+# the derived string does not match the target.
+# Otherwise, the command is not executed,  and if the grabsync
+# is specified the event is handled normally, otherwise it is lost.
+
 
 # Examples of commands:
 
@@ -45,6 +125,25 @@
 # set directly keycode (here control + f with my keyboard)
 "xterm"
   c:41 + m:0x4
+
+
+# Examples with conditions.
+# Note it is important that the widowid_env is set somewhere in this file,
+# e.g.  
+#  windowidenv=W
+
+# Run the xdotool command on Control-b only if the filename matches firefox
+"xdotool key --window $W Left"
+%WHEN FILE firefox
+  control + b
+
+# On control-a replace key with a Home key unless the window's class is emacs,
+# in which case emacs receives the key if grabsync is in effect.
+"xdotool key --window $W Home"
+%EXCLUDE CLASS emacs
+  control + a
+
+
 
 # specify a mouse button
 "xterm"

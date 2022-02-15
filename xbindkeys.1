@@ -44,6 +44,10 @@ size and position of window with -k|-mk option
 \fB-n, --nodaemon\fP
 don't start as daemon
 
+.TP
+\fB-y N, --delay N\fP
+Delay N milliseconds before issuing command.
+
 .LP
 If guile support has not been disabled:
 .TP
@@ -74,6 +78,14 @@ characters to combine them together.
 The format of a command line is:
 .nf
     "command to start &"
+.nf
+       associated key
+.LP
+or, if using a condition (described below)
+.nf
+    "command to start &"
+.nf
+    %condition type target
 .nf
        associated key
 .LP
@@ -108,6 +120,68 @@ attention to them.
 .nf
     keystate_scrolllock= enable
 
+.SH "USE OF DELAY"
+A key can be changed by invoking \fIxdotool\fP as the command.
+However, for this to work a small delay is often required before running
+the command, otherwise the \fIxbindkeys\fP program sees the key.
+The delay can be added in the control file with a line such as
+.br
+    delay = \fINNN\fP
+.br
+where \fINNN\fP is the number of milliseconds to delay.  A value of
+100 is often sufficient if the key is released quickly afterwards.
+
+The -y (or --delay) option can be used to test various values if the
+delay line is not used.
+
+.SH "CONDITIONS"
+.LP
+A condition line has the format
+.nf
+    %qualifier type target1
+.fi    
+and if present appears between the command line and the associated key line.
+.PP
+The \fIqualifier\fP is either WHEN or EXCLUDE.
+
+The \fItype\fP is used to derive a string from the window where the event originated from.
+The derived string is:
+.nf
+* the window name (WM_NAME property) if \fItype\fP is \fBNAME\fP;
+.nf
+* the window class (WM_CLASS property) if \fItype\fP is \fBCLASS\fP;
+.nf
+* the window's command (WM_COMMAND property) if \fItype\fP is \fBCOMMAND\fP.
+.fi
+
+The \fItarget\fP is an extended regexp (in the style of egrep).
+
+The condition is true if
+.nf
+* the qualifier is \fBWHEN\fP and there is a match, or
+.nf
+* the qualifier is \fBEXCLUDE\fP and there is no match.
+.fi
+
+If the condition is true then the comand is executed.
+.SH "WHEN THE CONDITION IS FALSE"
+The behaviour when the condition evalues to false is controlled
+by the presence of either of these lines in the rc file:
+.in +4n
+fallback = discard
+.nf
+fallback = pass
+.in
+Specifying \fBdiscard\fP means the event is ignored.
+.nf
+Specifying \fBpass\fP means the event is passed to the window as normal
+(as if xkeybindings was not in effect).
+
+The default is \fBdiscard\fP.
+.SS Caution When Using Pass
+Specifying fallback = pass causes a synchronous grab on the keyboard and mouse
+(as opposed to an asynchrous grab when using discard).  Attempts to debug such a program
+may lead to the keyboard or pointer being locked up.
 .SH "EXAMPLES"
 .LP
 # control+shift+q starts xterm
@@ -139,7 +213,16 @@ attention to them.
 "rxvt"
 .nf
   Control + b:2 + Release
+.PP
+# Use xtodotool to turn control-b into a Left key in a firefox window.
+.nf
+"xdotool key Left"
+.nf
+%WHEN FILE firefox
+.nf
+    control + b
 
+.fi
 .SH "SCHEME CONFIGURATION STYLE"
 A scheme configuration can be used if guile support has not been disabled.
 The standard configuration is loaded only if the scheme configuration is not
@@ -153,6 +236,7 @@ For more details, please see here
 configurations, for example double click, timed click or key combinations.\fP
 .LP
 The default location is ~/.xbindkeysrc.scm
+
 .LP
 Use xbindkeys --defaults-guile for more details.
 .LP

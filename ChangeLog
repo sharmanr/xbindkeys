@@ -1,3 +1,17 @@
+2022-02-14  Richard Sharman  <rsharman@pobox.com>
+
+	* Added conditions:   The rc and scm files may now specify a
+	condition required to run the command.  If the condition is satisfied,
+	the command is run; if not by default the action is ignored but a global
+	option allows the event to be passed to the window.
+
+	* Added option to sleep before running command;  this is often
+	required when xdotool is run.
+	
+	* Fixed some compilation warnings
+
+	* Updated configue to check for guile 3
+
 2020-05-23  Philippe Brochard <hocwp@free.fr>
 
 	* Fix some compilation warnings

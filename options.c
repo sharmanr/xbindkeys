@@ -21,18 +21,22 @@
 #include <stdlib.h>
 #include <X11/keysym.h>
 #include <ctype.h>
+#include <X11/X.h>
 #include "options.h"
 #include "xbindkeys.h"
 #include "keys.h"
 #include "grab_key.h"
+#include "winfo.h"
 
 #ifdef GUILE_FLAG
 #include <libguile.h>
 #endif
 
 char *display_name = NULL;
-
 char rc_file[512];
+Window current_windowid = 0;
+
+#define DEFAULT_RC_FILE "/.xbindkeysrc"
 #ifdef GUILE_FLAG
 char rc_guile_file[512];
 #endif
@@ -43,9 +47,10 @@ int have_to_show_binding = 0;
 int have_to_get_binding = 0;
 int have_to_start_as_daemon = 1;
 int detectable_ar = 0;
-
+int grab_sync = 0;
+int last_fallback_line_seen = 0;
 char *geom = NULL;
-
+long command_delay = 0;
 
 static void show_version (void);
 static void show_help (void);
@@ -58,22 +63,33 @@ SCM set_scrolllock_wrapper (SCM x);
 SCM set_capslock_wrapper (SCM x);
 SCM xbindkey_wrapper(SCM key, SCM cmd);
 SCM xbindkey_function_wrapper(SCM key, SCM fun);
+SCM xbindkey_condition_function_wrapper (SCM key, SCM fun);
+SCM set_pass_on_fail (SCM arg);
+SCM set_windowidenv (SCM arg);
+SCM char_property_wrapper(SCM scm_property, SCM scm_window);
+SCM get_window_class_wrapper (SCM arg);
+SCM get_window_name_wrapper (SCM arg);
+SCM get_window_command_wrapper (SCM arg);
 SCM remove_xbindkey_wrapper(SCM key);
 SCM run_command_wrapper (SCM command);
 SCM grab_all_keys_wrapper (void);
 SCM ungrab_all_keys_wrapper (void);
 SCM remove_all_keys_wrapper (void);
 SCM debug_info_wrapper (void);
+SCM get_current_windowid (void);
+SCM get_delay_wrapper (void);
+SCM set_delay_wrapper (SCM delay);
 #endif
 
-
+static int line_num = 0;
 
 void
 get_options (int argc, char **argv)
 {
   int i;
   char *home;
-
+  char *endptr;
+  
   strncpy (rc_file, "", sizeof(rc_file));
 #ifdef GUILE_FLAG
   strncpy (rc_guile_file, "", sizeof (rc_guile_file));
@@ -164,6 +180,17 @@ get_options (int argc, char **argv)
 	{
 	  detectable_ar = 1;
 	}
+      else if (strcmp (argv[i], "-y") == 0
+	       || strcmp (argv[i], "--delay") == 0)
+	{
+	  command_delay = strtol(argv[++i], &endptr, 0);
+	  if (*endptr != '\0')
+	    {
+	      printf("Invalid delay value `%s'\n", argv[i]);
+	      exit (1);
+	    }
+	  printf("Commands will be delayed for %ld milliseconds\n", command_delay);
+	}
       else
 	{
 	  show_help ();
@@ -175,10 +202,10 @@ get_options (int argc, char **argv)
     {
       home = getenv ("HOME");
 
-      if (rc_file != NULL)
+      if (home != NULL)
 	{
-	  strncpy (rc_file, home, sizeof (rc_file) - 20);
-	  strncat (rc_file, "/.xbindkeysrc", 20);
+	  strncpy (rc_file, home, sizeof (rc_file));
+	  strncat (rc_file, DEFAULT_RC_FILE, sizeof (rc_file) - strlen(DEFAULT_RC_FILE));
 	}
     }
 
@@ -187,7 +214,7 @@ get_options (int argc, char **argv)
     {
       home = getenv ("HOME");
 
-      if (rc_guile_file != NULL)
+      if (home != NULL)
 	{
 	  strncpy (rc_guile_file, home, sizeof (rc_guile_file) - 20);
 	  strncat (rc_guile_file, "/.xbindkeysrc.scm", 20);
@@ -244,6 +271,7 @@ show_help (void)
   fprintf (stderr,
 	   "  -g, --geometry          size and position of window open with -k|-mk option\n");
   fprintf (stderr, "  -n, --nodaemon          don't start as daemon\n");
+  fprintf (stderr, "  -y NNNN, --delay NNNN   delay NNNN msec before command\n");
 }
 
 
@@ -266,11 +294,15 @@ show_defaults_rc (void)
   printf
     ("# 'xbindkeys --multikey' and put one of the two lines in this file.\n");
   printf ("#\n");
-  printf ("# The format of a command line is:\n");
+  printf ("# The format of a command line is either:\n");
   printf ("#    \"command to start\"\n");
   printf ("#       associated key\n");
   printf ("#\n");
-  printf ("#\n");
+  printf ("# or (see below for explanations about conditions):\n");
+  printf ("#    \"command to start\"\n");
+  printf ("#       %%condition type string-to-match\n");
+  printf ("#       associated key\n");
+  printf ("\n");
   printf ("# A list of keys is in /usr/include/X11/keysym.h and in\n");
   printf ("# /usr/include/X11/keysymdef.h\n");
   printf ("# The XK_ is not needed.\n");
@@ -286,12 +318,53 @@ show_defaults_rc (void)
   printf
     ("# By defaults, xbindkeys does not pay attention with the modifiers\n");
   printf ("# NumLock, CapsLock and ScrollLock.\n");
-  printf
-    ("# Uncomment the lines above if you want to pay attention to them.\n");
+  printf ("# Uncomment the lines below if you want to pay attention to them.\n");
   printf ("\n");
   printf ("#keystate_numlock = enable\n");
   printf ("#keystate_capslock = enable\n");
   printf ("#keystate_scrolllock= enable\n");
+  printf ("\n");
+  printf ("\n");
+  printf ("\n");
+  printf ("# Conditions:\n");
+  printf (" \n");
+  printf ("# The optional condition line is of the form\n");
+  printf ("#   %%qualifier type target\n");
+  printf ("\n");
+  printf ("# The qualifier is either WHEN or EXCLUDE.\n");
+  printf ("\n");
+  printf ("# The type is used to derive a string from the a window where the event\n");
+  printf ("# originated from. The derived string is:\n");
+  printf ("#     * the window name (WM_NAME property) if type is NAME;\n");
+  printf ("#     * the window class (WM_CLASS property) if type is CLASS;\n");
+  printf ("#     * the window's command (WM_COMMAND) property) if type is COMMAND.\n");
+  printf ("# Note: If the property is empty (as can happen for WM_COMMAND) the resultant\n");
+  printf ("# string is empty.\n");
+  printf ("\n");
+  printf ("# The target is an extended regexp (in the style of egrep).\n");
+  printf ("\n");
+  printf ("# The condition is true if\n");
+  printf ("#   the qualifier is WHEN and there is a match, or\n");
+  printf ("#   the qualifier is EXCLUDE and there is no match.\n");
+  printf ("\n");
+  printf ("# If the condition is true then the comand is executed.\n");
+  printf ("\n");
+  printf ("# Uncomment one of these two lines to control the behaviour when\n");
+  printf ("# the condition evalues to false:\n");
+  printf ("#\n");
+  printf ("#fallback = discard\n");
+  printf ("#fallback = pass\n");
+  printf ("#\n");
+  printf ("# Specifying discard means the event is ignored.\n");
+  printf ("# Specifying pass means the event is passed to the window as normal\n");
+  printf ("# (as if xkeybindings was not in effect).\n");
+
+  printf ("\n");
+  printf ("# To introduce a delay before the command is run, typically required when\n");
+  printf ("# xdotool is used to send a different key,\n");
+  printf ("# use delay = <some value in millisecods> .\n");
+  printf ("# E.g.\n");
+  printf ("#delay = 100\n");
   printf ("\n");
   printf ("# Examples of commands:\n");
   printf ("\n");
@@ -303,10 +376,28 @@ show_defaults_rc (void)
   printf ("\"xterm\"\n");
   printf ("  c:41 + m:0x4\n");
   printf ("\n");
+  printf ("\n");
+  printf ("\n");
   printf ("# specify a mouse button\n");
   printf ("\"xterm\"\n");
   printf ("  control + b:2\n");
   printf ("\n");
+  printf ("# For these 2 examples,  fallback = pass will be needed and\n");
+  printf ("# probably delay = 100 also.\n");
+  printf ("#\n");
+  printf ("## Run the xdotool command on Control-b only if the filename matches firefox.\n");
+  printf ("## Otherwise, the key is passed on if the grabsync option is in the rc file. \n");
+  printf ("## The use of  --clearmodifiers  ensures the key is just Left, not Control+Left .\n");
+  printf ("#\"xdotool key --clearmodifiers Left\"\n");
+  printf ("#%%WHEN COMMAND firefox\n");
+  printf ("#  control + b\n");
+  printf ("#\n");
+  printf ("## On control-a replace key with a Home key unless the window's class is Emacs,\n");
+  printf ("## Again, for emacs to see the control-a the grabsync option must be specified!\n");
+  printf ("#\"xdotool key --clearmodifiers Home\"\n");
+  printf ("#%%EXCLUDE CLASS Emacs\n");
+  printf ("#  control + a\n");
+  printf ("  \n");
   printf ("#\"xterm -geom 50x20+20+20\"\n");
   printf ("#   Shift+Mod2+alt + s\n");
   printf ("#\n");
@@ -361,7 +452,6 @@ show_defaults_guile_rc (void)
   printf (";;   Release, Control, Shift, Mod1 (Alt), Mod2 (NumLock),\n");
   printf (";;   Mod3 (CapsLock), Mod4, Mod5 (Scroll).\n");
   printf ("\n");
-  printf ("\n");
   printf (";; The release modifier is not a standard X modifier, but you can\n");
   printf (";; use it if you want to catch release instead of press events\n");
   printf ("\n");
@@ -375,6 +465,23 @@ show_defaults_guile_rc (void)
   printf (";;(set-numlock! #t)\n");
   printf (";;(set-scrolllock! #t)\n");
   printf (";;(set-capslock! #t)\n");
+  printf ("\n");
+  printf (";; For the conditional function xbindkey-condition-function (see below),\n");
+  printf (";; if the condition is not met, then the default action is to\n");
+  printf (";; absorb the event.\n");
+  printf (";; To pass the event (key or button) to the window,\n");
+  printf (";; uncomment the following:\n");
+  printf (";;(set-pass-on-fail #t)\n");
+  printf ("\n");
+  printf (";; To introduce a delay before the command is run, typically required when\n");
+  printf (";; xdotool is used to send a different key, use set-delay with a numeric\n");
+  printf (";; argument, the time in milliseconds, e.g. to delay 0.1 second use\n");
+  printf (";; (set-delay 100)\n");
+  printf ("\n");
+  printf (";; If the command to be run requires the active windowid, if can be\n");
+  printf (";; retrieved with  function current-windowid.\n");
+  printf (";; E.g. (define windowid (current-windowid))\n");
+  printf (";;\n");
   printf ("\n");
   printf (";;;;; Scheme API reference\n");
   printf (";;;;\n");
@@ -390,7 +497,18 @@ show_defaults_guile_rc (void)
   printf (";; Scheme function key:\n");
   printf (";; (xbindkey-function key function-name-or-lambda-function)\n");
   printf (";; (xbindkey-function '(modifier* key) function-name-or-lambda-function)\n");
-  printf (";; \n");
+  printf (";;\n");
+  printf (";; Conditions:\n");
+  printf (";; (xbindkey-condition-function key function-name-or-lambda-function)\n");
+  printf (";; (xbindkey-condition-function '(modifier* key) function-name-or-lambda-function)\n");
+  printf (";; See above for the usage of set-pass-on-fail.\n");
+  printf (";;\n");
+  printf (";; To find the window's class, name or command invoke\n");
+  printf (";; window-class window-name or window-command with the current\n");
+  printf (";; windowid obtained from function current-windowid.\n");
+  printf (";; E.g.\n");
+  printf (";; (let ((class (window-class (current-windowid)))...))\n");
+  printf ("\n");
   printf (";; Other functions:\n");
   printf (";; (remove-xbindkey key)\n");
   printf (";; (run-command \"foo-bar-command [args]\")\n");
@@ -398,7 +516,11 @@ show_defaults_guile_rc (void)
   printf (";; (ungrab-all-keys)\n");
   printf (";; (remove-all-keys)\n");
   printf (";; (debug)\n");
-  printf ("\n");
+  printf (";; (window-class w)\n");
+  printf (";; (window-name w)\n");
+  printf (";; (window-command w)\n");
+  printf (";; (char-property)\n");
+  printf (";; (current-windowid)\n");
   printf ("\n");
   printf (";; Examples of commands:\n");
   printf ("\n");
@@ -499,6 +621,40 @@ show_defaults_guile_rc (void)
   printf ("(define-chord-keys '(alt \"b:1\") '(alt \"b:3\")\n");
   printf ("  \"gv\" \"xpdf\" \"xterm\" \"xterm\")\n");
   printf ("\n");
+  printf (";; Examples of conditions\n");
+  printf ("\n");
+  printf (";; Trivial example\n");
+  printf ("\n");
+  printf ("(use-modules (ice-9 format)) ;; for format\n");
+  printf ("(use-modules (ice-9 regex))  ;; for string-match \n");
+  printf ("\n");
+  printf ("(xbindkey-condition-function\n");
+  printf (" '(control F1)\n");
+  printf (" ;; show the window name if an xterm\n");
+  printf (" (lambda ()\n");
+  printf ("   (if (string-match \"[xX][tT]erm\" (window-class))\n");
+  printf ("       (begin\n");
+  printf ("	 (display \"match!\") (newline)\n");
+  printf ("	 (run-command (format #f \"xmessage name is ~s\" (window-name)))\n");
+  printf ("	 #t) ;; return to absorb the key\n");
+  printf ("       #f)   ;; if not an xterm, pass on the key\n");
+  printf ("   ))\n");
+  printf ("   \n");
+  printf (";; If control-b pressed in firefox replace it with a left arrow key\n");
+  printf (";; The event is lost unless this line is uncommented!\n");
+  printf (";(set-pass-on-fail #t)\n");
+  printf ("(xbindkey-condition-function\n");
+  printf (" '(control b)\n");
+  printf (" (lambda ()\n");
+  printf ("   (if (string-match \"[fF]irefox\" (window-class))\n");
+  printf ("       (begin\n");
+  printf ("	 (run-command (format #f \"xdotool key --clearmodifiers Left\" ))\n");
+  printf ("	 #t)\n");
+  printf ("       #f\n");
+  printf ("   )))\n");
+  printf ("   \n");
+  printf (";; For more generalized emacs bindings see separate file emacsbindings.scm\n");
+  printf ("\n");
   printf ("\n");
   printf (";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n");
   printf (";; End of xbindkeys guile configuration ;;\n");
@@ -552,7 +708,72 @@ rc_file_exist (void)
 }
 
 
+char * skip_blanks (char *p)
+{
+  while (*p && *p != '\n' && isspace (*p))
+    p++;
+  return p;
+}
 
+char * skip_non_blanks (char *p)
+{
+  while (*p && !isspace (*p))
+    p++;
+  return p;
+}
+
+int have_token (char *p, char *expected, char **newp)
+{
+  /* If *p matches the string EXPECTED,
+   * then skip over it and any trailing blanks,
+   * setting newp to the resultant pointer and return 1.
+   * Otherwise, return 0.
+   */
+  if (strncmp (p, expected, strlen (expected)) == 0)
+    {
+      *newp = p + strlen (expected);
+      *newp = skip_blanks (*newp);
+      return 1;
+    }
+  *newp = NULL;
+  return 0;
+}
+
+char * next_line (char *line, int length, FILE *file)
+{
+  char *p;
+  int n;
+
+  while (fgets (line, length, file))
+    {
+      line_num += 1;
+      n = strlen (line);
+      if (line[n - 1] == '\n')
+	{
+	  line[n - 1] = '\0';
+	}
+      p = skip_blanks (line);
+      if (*p == '\0')
+	{
+	  // puts ("empty line");
+	}
+      else if (*p == '#')
+	{
+	  // puts ("comment line");
+	}
+      else
+	{
+	  return p;
+	}
+    }
+  return NULL;
+}
+
+void rc_error (char *msg, char *line)
+{
+  fprintf (stderr, "%s:%d:%s\n", rc_file, line_num, msg);
+  fprintf (stderr, "%s\n", line);
+}
 
 
 int
@@ -571,11 +792,15 @@ get_rc_file (void)
   char *pos1;
   char *pos2;
   char *p;
+  char *q;
   int i;
-
+  Condition_t condition;
+  int cflags = REG_EXTENDED;
+  char errbuff[1024];
+  int n;
 
   if (init_keys () != 0)
-    return (-1);
+    return(-1);
 
   /* Open RC File */
   if ((stream = fopen (rc_file, "r")) == NULL)
@@ -585,216 +810,309 @@ get_rc_file (void)
       fprintf (stderr,
 	       "please, create one with 'xbindkeys --defaults > %s'.\n",
 	       rc_file);
-      return (-1);
+      return(-1);
     }
 
 
   /* Read RC file */
-  while (fgets (line, sizeof (line), stream))
+  while ((p = next_line (line, sizeof (line), stream)) != NULL)
     {
+      /* p points to first non-space character of a non-empty non-comment line */
+
       /* search for keystate options */
-      if (strstr (line, "keystate_numlock") != NULL)
+      if (have_token (p, "keystate_numlock", &q))
 	{
-	  /* search for comment or command line */
-	  pos1 = strchr (line, '"');
-	  pos2 = strchr (line, '#');
-	  if (!pos1 && !pos2)
+	  if (strstr (q, "enable") != NULL)
 	    {
-	      if (strstr (line, "enable") != NULL)
-		{
-		  numlock_mask = 0;
-		}
-	      if (verbose)
-		printf ("keystate_numlock: %s\n",
-			numlock_mask == 0 ? "Enabled" : "Disabled");
-
-	      continue;
+	      numlock_mask = 0;
 	    }
+	  if (verbose)
+	    printf ("keystate_numlock: %s\n",
+		    numlock_mask == 0 ? "Enabled" : "Disabled");
+
+	  continue;
 	}
 
-      if (strstr (line, "keystate_capslock") != NULL)
+      if (have_token (p, "keystate_capslock", &q))
 	{
-	  /* search for comment or command line */
-	  pos1 = strchr (line, '"');
-	  pos2 = strchr (line, '#');
-	  if (!pos1 && !pos2)
+	  if (strstr (q, "enable") != NULL)
 	    {
-	      if (strstr (line, "enable") != NULL)
-		{
-		  capslock_mask = 0;
-		}
-	      if (verbose)
-		printf ("keystate_capslock: %s\n",
-			capslock_mask == 0 ? "Enabled" : "Disabled");
-
-	      continue;
+	      capslock_mask = 0;
 	    }
+	  if (verbose)
+	    printf ("keystate_capslock: %s\n",
+		    capslock_mask == 0 ? "Enabled" : "Disabled");
+
+	  continue;
 	}
 
-      if (strstr (line, "keystate_scrolllock") != NULL)
+      if (have_token (p, "keystate_scrolllock", &q))
 	{
-	  /* search for comment or command line */
-	  pos1 = strchr (line, '"');
-	  pos2 = strchr (line, '#');
-	  if (!pos1 && !pos2)
+	  if (strstr (q, "enable") != NULL)
 	    {
-	      if (strstr (line, "enable") != NULL)
-		{
-		  scrolllock_mask = 0;
-		}
-	      if (verbose)
-		printf ("keystate_scrolllock: %s\n",
-			scrolllock_mask == 0 ? "Enabled" : "Disabled");
-
-	      continue;
+	      scrolllock_mask = 0;
 	    }
+	  if (verbose)
+	    printf ("keystate_scrolllock: %s\n",
+		    scrolllock_mask == 0 ? "Enabled" : "Disabled");
+
+	  continue;
 	}
 
-
-      pos1 = strchr (line, '"');
-      if (pos1)
+      if (*p == '"')
 	{
-	  pos2 = strchr (line, '#');
-
-	  if (!pos2 || pos2 > pos1)
+	  /* we have a command */
+	  command[0] = '\0';
+	  type = SYM;
+	  event_type = PRESS;
+	  keysym = 0;
+	  keycode = 0;
+	  button = 0;
+	  modifier = 0;
+	  condition.required = CONDITION_NONE;
+	  pos1 = p;
+	  pos2 = strrchr (p+1, '"');
+	  if (pos2 == NULL)
 	    {
-	      /* search for command line */
-	      pos2 = strrchr (line, '"');
-	      if (pos2 && pos1 < pos2)
-		{
-		  command[0] = '\0';
-		  type = SYM;
-		  event_type = PRESS;
-		  keysym = 0;
-		  keycode = 0;
-		  button = 0;
-		  modifier = 0;
+	      rc_error ("Invalid command (missing final quote)", line);
+	      return(-1);
+	    }
+	  for (p = p + 1, i = 0;
+	       p < pos2 && i < sizeof(command); p++, i++)
+	    {
+	      command[i] = *p;
+	    }
+	  command[i] = '\0';
 
-		  for (p = pos1 + 1, i = 0;
-		       p < pos2 && i < sizeof (command); p++, i++)
+
+	  /* get either a condition or associated keys */
+
+	  p = next_line (line, sizeof(line), stream);
+	  if (p == NULL)
+	    {
+	      fprintf (stderr, "Unexpected EOF\n");
+	      return(-1);
+	    }
+
+	  if (*p == '%')
+	    {
+	      /* we have a condition */
+	      p++;
+
+	      if (have_token (p, "WHEN", &q))
+		condition.required = CONDITION_MATCH;
+	      else if (have_token (p, "EXCLUDE", &q))
+		condition.required = CONDITION_EXCLUDE;
+	      else
+		{
+		  rc_error ("unknown conditon", line);
+		  return(-1);
+		}
+	      /* q points to next nonblank character */
+	      p = q;
+	      if (*p == '\0')
+		{
+		  rc_error ("condition error", line);
+		  return(-1);
+		}
+	      if (have_token (p, "COMMAND", &q))
+		condition.match = MATCH_COMMAND;
+	      else if (have_token (p, "CLASS", &q))
+		condition.match = MATCH_CLASS;
+	      else if (have_token (p, "NAME", &q))
+		condition.match = MATCH_NAME;
+	      else
+		{
+		  rc_error ("Invalid condition type", line);
+		  return(-1);
+		}
+	      condition.string = strdup (q);
+	      /* set pos1 to the string trimmed of trailing whitespace */
+	      pos1 = q;
+	      p = skip_non_blanks (pos1);
+	      /* p points to space or '\0' */
+	      *p = '\0';
+
+	      n = regcomp (&condition.regexp, pos1, cflags);
+	      if (n != 0)
+		{
+		  regerror (n, NULL, errbuff, sizeof(errbuff));
+		  rc_error("Invalid regexp", line);
+		  fprintf (stderr, "%s\n", errbuff);
+		  return (-1);
+		}
+
+
+	      p = next_line (line, sizeof(line), stream);
+	      if (p == NULL)
+		{
+		  fprintf (stderr, "Unexpected EOF\n");
+		  return(-1);
+		}
+	    }
+
+
+	  pos1 = line;
+	  
+	  while (*pos1 != '\0')
+	    {
+	      /* jump space */
+	      for (; *pos1 == '+' || *pos1 == ' '
+		     || *pos1 == '\t'; pos1++);
+
+	      /* find corresponding + or \n */
+	      pos2 = strchr (pos1, '+');
+	      if (!pos2)
+		{
+		  for (pos2 = pos1; *pos2 != '\0'; pos2++);
+		}
+
+	      /* copy string in line2 */
+	      for (p = pos1, i = 0;
+		   p < pos2 && i < sizeof (line2)
+		     && *p != '+' && *p != ' ' && *p != '\t';
+		   p++, i++)
+		{
+		  line2[i] = *p;
+		}
+	      line2[i] = '\0';
+
+	      /* is a numeric keycode (c:nnn) ? */
+	      if (line2[0] == 'c' && line2[1] == ':')
+		{
+		  if (isdigit (line2[2]))
 		    {
-		      command[i] = *p;
+		      type = CODE;
+		      keycode = strtol (line2+2, (char **) NULL, 0);
 		    }
-		  command[i] = '\0';
-
-		  /* get associated keys */
-		  if (fgets (line, sizeof (line), stream))
+		  else
 		    {
-		      pos1 = line;
-
-		      while (*pos1 != '\n')
+		      keysym = 0;
+		      keycode = 0;
+		      button = 0;
+		      break;
+		    }
+		}
+	      else
+		/* is a numeric modifier (m:nnn) ? */
+		if (line2[0] == 'm' && line2[1] == ':')
+		  {
+		    if (isdigit (line2[2]))
+		      {
+			modifier |= strtol (line2+2, (char **) NULL, 0);
+		      }
+		    else
+		      {
+			keysym = 0;
+			keycode = 0;
+			button = 0;
+			break;
+		      }
+		  }
+		else
+		  /* is a mouse button (b:nnn) ? */
+		  if (line2[0] == 'b' && line2[1] == ':')
+		    {
+		      if (isdigit (line2[2]))
 			{
-			  /* jump space */
-			  for (; *pos1 == '+' || *pos1 == ' '
-			       || *pos1 == '\t'; pos1++);
-
-			  /* find corresponding + or \n */
-			  pos2 = strchr (pos1, '+');
-			  if (!pos2)
-			    {
-			      for (pos2 = pos1; *pos2 != '\n'; pos2++);
-			    }
-
-			  /* copy string in line2 */
-			  for (p = pos1, i = 0;
-			       p < pos2 && i < sizeof (line2)
-			       && *p != '+' && *p != ' ' && *p != '\t';
-			       p++, i++)
-			    {
-			      line2[i] = *p;
-			    }
-			  line2[i] = '\0';
-
-			  /* is a numeric keycode (c:nnn) ? */
-			  if (line2[0] == 'c' && line2[1] == ':')
-			    {
-			      if (isdigit (line2[2]))
-				{
-				  type = CODE;
-				  keycode = strtol (line2+2, (char **) NULL, 0);
-				}
-			      else
-				{
-				  keysym = 0;
-				  keycode = 0;
-				  button = 0;
-				  break;
-				}
-			    }
-			  else
-			    /* is a numeric modifier (m:nnn) ? */
-			  if (line2[0] == 'm' && line2[1] == ':')
-			    {
-			      if (isdigit (line2[2]))
-				{
-				  modifier |= strtol (line2+2, (char **) NULL, 0);
-				}
-			      else
-				{
-				  keysym = 0;
-				  keycode = 0;
-				  button = 0;
-				  break;
-				}
-			    }
-			  else
-			    /* is a mouse button (b:nnn) ? */
-			  if (line2[0] == 'b' && line2[1] == ':')
-			    {
-			      if (isdigit (line2[2]))
-				{
-				  type = BUTTON;
-				  button = strtol (line2+2, (char **) NULL, 0);
-				}
-			      else
-				{
-				  keysym = 0;
-				  keycode = 0;
-				  button = 0;
-				  break;
-				}
-			    }
-			  else
-			    {
-			      /* apply to modifier, release/press or key */
-			      if (strcasecmp (line2, "control") == 0)
-				modifier |= ControlMask;
-			      else if (strcasecmp (line2, "shift") == 0)
-				modifier |= ShiftMask;
-			      else if (strcasecmp (line2, "mod1") == 0
-				       || strcasecmp (line2, "alt") == 0)
-				modifier |= Mod1Mask;
-			      else if (strcasecmp (line2, "mod2") == 0)
-				modifier |= Mod2Mask;
-			      else if (strcasecmp (line2, "mod3") == 0)
-				modifier |= Mod3Mask;
-			      else if (strcasecmp (line2, "mod4") == 0)
-				modifier |= Mod4Mask;
-			      else if (strcasecmp (line2, "mod5") == 0)
-				modifier |= Mod5Mask;
-			      else if (strcasecmp (line2, "release") == 0)
-				event_type = RELEASE;
-			      else
-				{
-				  type = SYM;
-				  keysym = XStringToKeysym (line2);
-				  if (keysym == 0)
-				    break;
-				}
-			    }
-
-			  pos1 = pos2;
+			  type = BUTTON;
+			  button = strtol (line2+2, (char **) NULL, 0);
+			}
+		      else
+			{
+			  keysym = 0;
+			  keycode = 0;
+			  button = 0;
+			  break;
 			}
 		    }
-
-		  if (add_key (type, event_type, keysym, keycode,
-			       button, modifier, command, 0) != 0)
-		    break;
-		}
+		  else
+		    {
+		      /* apply to modifier, release/press or key */
+		      if (strcasecmp (line2, "control") == 0)
+			modifier |= ControlMask;
+		      else if (strcasecmp (line2, "shift") == 0)
+			modifier |= ShiftMask;
+		      else if (strcasecmp (line2, "mod1") == 0
+			       || strcasecmp (line2, "alt") == 0)
+			modifier |= Mod1Mask;
+		      else if (strcasecmp (line2, "mod2") == 0)
+			modifier |= Mod2Mask;
+		      else if (strcasecmp (line2, "mod3") == 0)
+			modifier |= Mod3Mask;
+		      else if (strcasecmp (line2, "mod4") == 0)
+			modifier |= Mod4Mask;
+		      else if (strcasecmp (line2, "mod5") == 0)
+			modifier |= Mod5Mask;
+		      else if (strcasecmp (line2, "release") == 0)
+			event_type = RELEASE;
+		      else
+			{
+			  type = SYM;
+			  keysym = XStringToKeysym (line2);
+			  if (keysym == 0)
+			    break;
+			}
+		    }
+	      pos1 = pos2;
 	    }
+	  
+	  if (add_key (type, event_type, keysym, keycode,
+		       button, modifier, command, 0, condition) != 0)
+	    {
+	      rc_error("Error", line);
+	      break;
+	    }
+	  continue;
 	}
-    }
 
+      if (have_token (p, "delay", &q))
+	{
+	  p = skip_blanks(q);
+	  /* Allow an optional '=' */
+	  if (*p == '=')
+	    p = skip_blanks(p+1);
+	  command_delay = strtol(p, &q, 0);
+	  if (*q != '\0' && !isspace(*q))
+	    {
+	      rc_error("Delay must be a number.", line);
+	      break;
+	    }
+	  printf("Commands will be delayed for %ld milliseconds\n", command_delay);
+	  continue;
+	}
+
+      if (have_token (p, "fallback", &q))
+	{
+	  if (strstr (q, "discard") != NULL)
+	    grab_sync = 0;
+	  else if (strstr (q, "pass") != NULL)
+	    grab_sync = 1;
+	  else
+	    {
+	      rc_error ("Neither `discard' nor `pass' found", line);
+	      return (-1);
+	    }
+	  if (last_fallback_line_seen)
+	    {
+	      printf("Warning: fallback on line %d overrides line %d\n",
+		     line_num, last_fallback_line_seen);
+
+	    }
+	  last_fallback_line_seen = line_num;
+	  if (verbose && grab_sync)
+	    {
+	      printf ("Keyboard will be grabbed synchronously.\n");
+	      printf ("Attempts to debug with gdb may lead to keyboard or mouse lockup.\n");
+	    }
+	  grab_sync = 1;
+	  continue;
+	}
+
+      /* We should not get to here if all is well */
+      rc_error ("Unknown line", line);
+      return(-1);
+    }
 
   /* Close RC File */
   if (stream != NULL)
@@ -836,12 +1154,21 @@ init_xbk_guile_fns (void)
   scm_c_define_gsubr("set-capslock!", 1, 0, 0, set_capslock_wrapper);
   scm_c_define_gsubr("xbindkey", 2, 0, 0, xbindkey_wrapper);
   scm_c_define_gsubr("xbindkey-function", 2, 0, 0, xbindkey_function_wrapper);
+  scm_c_define_gsubr("xbindkey-condition-function", 2, 0, 0, xbindkey_condition_function_wrapper);
+  scm_c_define_gsubr("set-pass-on-fail", 1, 0, 0, set_pass_on_fail);
+  scm_c_define_gsubr("current-windowid", 0, 0, 0, get_current_windowid);
+  scm_c_define_gsubr("window-name", 0, 1, 0, get_window_name_wrapper);
+  scm_c_define_gsubr("window-class", 0, 1, 0, get_window_class_wrapper);
+  scm_c_define_gsubr("window-command", 0, 1, 0, get_window_command_wrapper);
   scm_c_define_gsubr("remove-xbindkey", 1, 0, 0, remove_xbindkey_wrapper);
   scm_c_define_gsubr("run-command", 1, 0, 0, run_command_wrapper);
   scm_c_define_gsubr("grab-all-keys", 0, 0, 0, grab_all_keys_wrapper);
   scm_c_define_gsubr("ungrab-all-keys", 0, 0, 0, ungrab_all_keys_wrapper);
   scm_c_define_gsubr("remove-all-keys", 0, 0, 0, remove_all_keys_wrapper);
   scm_c_define_gsubr("debug", 0, 0, 0, debug_info_wrapper);
+  scm_c_define_gsubr("char-property", 1, 1, 0, char_property_wrapper);
+  scm_c_define_gsubr("get-delay", 0, 0, 0, get_delay_wrapper);
+  scm_c_define_gsubr("set-delay", 1, 0, 0, set_delay_wrapper);
   return 0;
 }
 
@@ -1027,7 +1354,7 @@ SCM xbindkey_wrapper(SCM key, SCM cmd)
     }
 
   if (add_key (type, event_type, keysym, keycode,
-       	button, modifier, cmdstr, 0) != 0)
+	       button, modifier, cmdstr, 0, no_condition) != 0)
     {
       printf("add_key didn't return 0!!!\n");
       return SCM_BOOL_F;
@@ -1059,14 +1386,14 @@ SCM xbindkey_function_wrapper (SCM key, SCM fun)
   tab_scm[0] = fun;
 
   if (add_key (type, event_type, keysym, keycode,
-	       button, modifier, NULL, tab_scm[0]) != 0)
+	       button, modifier, NULL, tab_scm[0], no_condition) != 0)
     {
       printf("add_key didn't return 0!!!\n");
       return SCM_BOOL_F;
     }
-  else {
-    printf ("add_key ok!!!  fun=%d\n", (scm_procedure_p (fun) == SCM_BOOL_T));
-  }
+  else
+    if (verbose)
+      printf ("add_key ok!!!  fun=%d\n", (scm_procedure_p (fun) == SCM_BOOL_T));
 
   //scm_permanent_object (tab_scm[0]);
   scm_remember_upto_here_1 (tab_scm[0]);
@@ -1074,6 +1401,101 @@ SCM xbindkey_function_wrapper (SCM key, SCM fun)
   return SCM_UNSPECIFIED;
 }
 
+SCM xbindkey_condition_function_wrapper (SCM key, SCM fun)
+{
+  KeyType_t type = SYM;
+  EventType_t event_type = PRESS;
+  KeySym keysym = 0;
+  KeyCode keycode = 0;
+  unsigned int button = 0;
+  unsigned int modifier = 0;
+
+  if (extract_key (key, &type, &event_type, &keysym, &keycode,
+		   &button, &modifier) == SCM_BOOL_F)
+    {
+      return SCM_BOOL_F;
+    }
+
+  tab_scm[0] = fun;
+
+  if (add_key (type, event_type, keysym, keycode,
+	       button, modifier, NULL, tab_scm[0], func_condition) != 0)
+    {
+      printf("add_key didn't return 0!!!\n");
+      return SCM_BOOL_F;
+    }
+  else
+    if (verbose)
+      printf ("add_key ok!!!  fun=%d\n", (scm_procedure_p (fun) == SCM_BOOL_T));
+
+
+  //scm_permanent_object (tab_scm[0]);
+  scm_remember_upto_here_1 (tab_scm[0]);
+
+  return SCM_UNSPECIFIED;
+}
+
+SCM set_pass_on_fail (SCM arg)
+{
+  grab_sync = scm_is_true(arg);
+  printf("set_pass_on_fail:  arg is %s\n",
+	 scm_is_true(arg) ? "true" : "false");
+  return SCM_UNSPECIFIED;
+}
+
+
+SCM char_property_wrapper(SCM scm_property, SCM scm_window)
+{
+  Window window;
+  char *property_name;
+  char *property;
+  SCM property_ret;
+  
+  property_name = scm_to_locale_string(scm_property);
+  window = (scm_window == SCM_UNDEFINED) ? current_windowid : scm_to_int64(scm_window);
+
+  property = char_property (current_display, window, property_name);
+
+  /* replace NULL with an empty string */
+  if (property == NULL)
+    property_ret = scm_from_locale_string ("");
+  else
+    {
+      property_ret = scm_from_locale_string (property);
+      XFree(property);
+    }
+  return property_ret;
+}
+
+SCM get_window_name_wrapper (SCM arg)
+{
+  SCM window;
+  SCM retval;
+  
+  window = (arg == SCM_UNDEFINED) ? scm_from_int64(current_windowid) : arg;
+  retval = char_property_wrapper(scm_from_locale_string("WM_NAME"), window);
+  return retval;
+}
+
+SCM get_window_class_wrapper (SCM arg)
+{
+  SCM window;
+  SCM retval;
+
+  window = (arg == SCM_UNDEFINED) ? scm_from_int64(current_windowid) : arg;
+  retval = char_property_wrapper(scm_from_locale_string("WM_CLASS"), window);
+  return retval;
+}
+
+SCM get_window_command_wrapper (SCM arg)
+{
+  SCM window;
+  SCM retval;
+  
+  window = (arg == SCM_UNDEFINED) ? scm_from_int64(current_windowid) : arg;
+  retval = char_property_wrapper(scm_from_locale_string("WM_COMMAND"), window);
+  return retval;
+}
 
 
 SCM remove_xbindkey_wrapper (SCM key)
@@ -1143,6 +1565,24 @@ SCM debug_info_wrapper (void)
   printf ("\nKeys = %p\n", keys);
   printf ("nb_keys = %d\n", nb_keys);
 
+  return SCM_UNSPECIFIED;
+}
+
+SCM get_current_windowid (void)
+{
+  return scm_from_int64(current_windowid);
+}
+
+SCM get_delay_wrapper (void)
+{
+  return scm_from_int64(command_delay);
+}
+
+SCM set_delay_wrapper (SCM delay)
+{
+  /* should we return the previous value ??? */
+  command_delay = scm_to_int64(delay);
+  printf("command_delay set to %ld milliseconds\n", command_delay);
   return SCM_UNSPECIFIED;
 }
 

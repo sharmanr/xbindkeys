@@ -111,6 +111,8 @@ get_key_binding (Display * dpy, char **argv, int argc)
   Keys_t key;
   int min_keycode, max_keycode;
 
+  key.condition.required = CONDITION_NONE;
+  
   printf ("Press combination of keys or/and click under the window.\n");
   printf ("You can use one of the two lines after \"NoCommand\"\n");
   printf ("in $HOME/.xbindkeysrc to bind a key.\n");
