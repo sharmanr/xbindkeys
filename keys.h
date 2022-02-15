@@ -22,6 +22,7 @@
 #ifdef GUILE_FLAG
 #include <libguile.h>
 #endif
+#include <regex.h>
 
 typedef enum
   { SYM, CODE, BUTTON }
@@ -31,6 +32,34 @@ typedef enum
   { PRESS, RELEASE}
 EventType_t;
 
+typedef enum
+  {
+  CONDITION_NONE,
+#ifdef GUILE_FLAG
+  CONDITION_SCM_FUNC,
+#endif  
+  CONDITION_MATCH,
+  CONDITION_EXCLUDE
+  } Condition_required_t;
+
+typedef enum
+  {
+    MATCH_NONE,
+    MATCH_COMMAND,
+    MATCH_CLASS,
+    MATCH_NAME
+  }
+Match_t;
+
+typedef struct
+{
+  Condition_required_t required;
+  Match_t     match;
+  char	      *string;
+  regex_t     regexp;
+}
+Condition_t;
+ 
 #ifndef GUILE_FLAG
 typedef int SCM;
 #endif
@@ -53,16 +82,22 @@ typedef struct
   char *command;
   SCM function;    // This is to call a scheme function instead of a shell command
                    // when command == NULL (not used when guile is not used).
+  Condition_t condition;
 }
 Keys_t;
 
+extern char *condition_strings[];
+extern char *match_strings[];
+
+extern Condition_t no_condition;
+extern Condition_t func_condition;
 
 extern int init_keys (void);
 extern void close_keys (void);
 
 extern int add_key (KeyType_t type, EventType_t event_type, KeySym keysym, KeyCode keycode,
 		    unsigned int button, unsigned int modifier,
-		    char *command, SCM function);
+		    char *command, SCM function, Condition_t condition);
 
 extern int remove_key (KeyType_t type, EventType_t event_type, KeySym keysym, KeyCode keycode,
 		       unsigned int button, unsigned int modifier);
@@ -81,7 +116,7 @@ extern void set_button (Keys_t * key, EventType_t event_type, unsigned int butto
 
 extern void free_key (Keys_t * key);
 
-extern void start_command_key (Keys_t * key);
+extern int start_command_key (Keys_t * key, Window window);
 
 extern void modifier_to_string (unsigned int modifier, char *str);
 

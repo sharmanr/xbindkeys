@@ -12,7 +12,8 @@ xbindkeys_SOURCES=xbindkeys.c xbindkeys.h \
 		keys.h keys.c \
 		options.c options.h \
 		get_key.c get_key.h \
-		grab_key.c grab_key.h
+		grab_key.c grab_key.h \
+		winfo.c winfo.h
 
 
 
@@ -21,7 +22,8 @@ xbindkeys_DEPENDENCIES=xbindkeys.o keys.o options.o get_key.o grab_key.o
 EXTRA_DIST=BUGS xbindkeys.1 \
 	TODO xbindkeysrc  xbindkeys.spec \
 	xbindkeysrc.scm xbindkeysrc-combo.scm \
-	xbindkeys_show.1 xbindkeys_show
+	xbindkeys_show.1 xbindkeys_show \
+	emacsbindings.scm
 
 
 

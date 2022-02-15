@@ -31,15 +31,16 @@ extern int get_rc_guile_file (void);
 
 
 extern char *display_name;
+extern Window current_windowid;
 
 extern int verbose;
 extern int have_to_show_binding;
 extern int have_to_get_binding;
 extern int have_to_start_as_daemon;
 extern int detectable_ar;
+extern int grab_sync;
 
 extern char *geom;
-
-
+extern long command_delay;
 
 #endif /* __OPTIONS_H */

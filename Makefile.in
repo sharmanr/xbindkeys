@@ -107,7 +107,8 @@ am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)" \
 	"$(DESTDIR)$(man1dir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_xbindkeys_OBJECTS = xbindkeys.$(OBJEXT) keys.$(OBJEXT) \
-	options.$(OBJEXT) get_key.$(OBJEXT) grab_key.$(OBJEXT)
+	options.$(OBJEXT) get_key.$(OBJEXT) grab_key.$(OBJEXT) \
+	winfo.$(OBJEXT)
 xbindkeys_OBJECTS = $(am_xbindkeys_OBJECTS)
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
@@ -154,7 +155,7 @@ depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ./$(DEPDIR)/get_key.Po ./$(DEPDIR)/grab_key.Po \
 	./$(DEPDIR)/keys.Po ./$(DEPDIR)/options.Po \
-	./$(DEPDIR)/xbindkeys.Po
+	./$(DEPDIR)/winfo.Po ./$(DEPDIR)/xbindkeys.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -324,7 +325,6 @@ pdfdir = @pdfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 psdir = @psdir@
-runstatedir = @runstatedir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
@@ -341,13 +341,15 @@ xbindkeys_SOURCES = xbindkeys.c xbindkeys.h \
 		keys.h keys.c \
 		options.c options.h \
 		get_key.c get_key.h \
-		grab_key.c grab_key.h
+		grab_key.c grab_key.h \
+		winfo.c winfo.h
 
 xbindkeys_DEPENDENCIES = xbindkeys.o keys.o options.o get_key.o grab_key.o
 EXTRA_DIST = BUGS xbindkeys.1 \
 	TODO xbindkeysrc  xbindkeys.spec \
 	xbindkeysrc.scm xbindkeysrc-combo.scm \
-	xbindkeys_show.1 xbindkeys_show
+	xbindkeys_show.1 xbindkeys_show \
+	emacsbindings.scm
 
 @TK_FALSE@man_MANS_TK = 
 @TK_TRUE@man_MANS_TK = xbindkeys_show.1
@@ -499,6 +501,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/grab_key.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/keys.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/options.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/winfo.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xbindkeys.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
@@ -836,6 +839,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/grab_key.Po
 	-rm -f ./$(DEPDIR)/keys.Po
 	-rm -f ./$(DEPDIR)/options.Po
+	-rm -f ./$(DEPDIR)/winfo.Po
 	-rm -f ./$(DEPDIR)/xbindkeys.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
@@ -888,6 +892,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/grab_key.Po
 	-rm -f ./$(DEPDIR)/keys.Po
 	-rm -f ./$(DEPDIR)/options.Po
+	-rm -f ./$(DEPDIR)/winfo.Po
 	-rm -f ./$(DEPDIR)/xbindkeys.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
