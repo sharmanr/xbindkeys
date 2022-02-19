@@ -1,0 +1,48 @@
+# Test all modifiers
+
+# Note: some of these tests may not work if the window manager
+# has already grabbed them.
+
+keystate_numlock = enable
+keystate_scrolllock= enable
+keystate_capslock = enable
+
+
+"xmessage F1"
+	 F1
+
+
+# For Shift use m:1 or "shift"
+# For Capslock use m:2
+
+"xmessage shift + F1"
+	  shift + F1
+
+"xmessage capslock + F1"
+	  m:2 + F1
+
+"xmessage control + F1"
+	  control + F1
+	  
+"xmessage mod1 +  F1 : Alt"
+	 mod1 +  F1
+
+"xmessage mod2 +  F1 : Numlock"
+	 mod2 +  F1
+
+"xmessage mod3 +  F1  "
+	 mod3 +  F1
+
+"xmessage mod4 + F1  : Super"
+	 mod4 + F1
+
+"xmessage mod5 + F1 :  ScrollLock"
+	 mod5 + F1
+
+
+
+"locks.sh"
+	  F12
+
+"killall xmessage"
+	  KP_Enter

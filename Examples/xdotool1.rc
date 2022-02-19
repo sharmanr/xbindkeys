@@ -1,0 +1,21 @@
+# If xdotool commands are not working, try invoking with -y 100
+# or uncomment this:
+# delay 100
+
+# Also, it may be necessary to quickly release the key.
+
+fallback = pass
+
+# r -> t 
+"xdotool key t"
+	r
+
+# Control-a -> B
+"xdotool key --clearmodifiers B"
+	control + a	
+
+# xdotool can generate more than 1 key:
+# z -> d a t e 
+"xdotool key d a t e"
+	z
+

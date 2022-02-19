@@ -1,3 +1,7 @@
+			       Note
+			       """"
+This is a port of git.savannah.nongnu.org/xbindkeys with the addition of support for conditions
+and a delay intended when xdotool is the command.   See file README-Conditions.
 
 
 			       Overview
@@ -144,6 +148,12 @@ Use the -h or --help option for all available options.
 --nodaemon
                 Don't start as daemon. By default, xbindkeys starts in
                 background, this option prevents this feature.
+
+-y N
+--delay N
+		Delay N milliseconds before issuing command.
+		This may be required if the command is xdotool to remap keys.
+
 
 If guile support have not been disabled:
 

@@ -1,0 +1,21 @@
+"xmessage NAME is Example"
+%WHEN NAME Example
+      F1
+
+# To test this can do: xterm -title Example &
+"xmessage NAME is NOT Example"
+%EXCLUDE NAME Example
+	 F2
+
+"xmessage NAME is clock or xedit"
+%WHEN NAME clock|xedit
+	  F3
+	  
+"xmessage NAME neither clock nor xedit"
+%EXCLUDE NAME clock|xedit
+	  F4
+
+# F12 remove messages
+"killall xmessage"
+	 F12
+

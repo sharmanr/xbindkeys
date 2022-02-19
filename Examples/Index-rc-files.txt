@@ -1,0 +1,44 @@
+button1.rc			button events, no conditions
+
+button2.rc			button events,  with conditions
+
+
+condname.rc			condition on NAME
+	This conditionally brings up an xmessage, depending on the
+	current window’s class.
+	
+
+keystate1.rc			key states without conditions
+	Test all modifiers			
+
+keystate2.rc			key states with conditions
+	Test all modifiers unless the current window is emacs.
+
+
+
+releasebutton.rc		test release button events
+	Two tests are unconditional, one is conditional				
+
+releasekey.rc			release key events
+	Test release events, both unconditionally and conditionally.
+	
+
+testclass.rc			conditions on CLASS
+	For specific window classes show an xmessage.
+
+
+
+xdotool-delay.rc     use this to determine what delay is needed for xdotool
+	You may need to use this value in subsequent tests, either by
+	adding or adjusting the "delay" line or using the -y option.
+
+xdotool1.rc	call xdotool to fake keys
+	Test calling xdotool unconditionally.
+	Use xdotool-delay.rc to find what delay is needed.
+	
+xdotool2.rc	lots of tests of xdotool
+	Tests include generating "special" keys like Home
+	
+xdotool3.rc	call xdotool conditionally
+	This tests that when the condition is false, instead of faking a
+	new event the original event is seen.

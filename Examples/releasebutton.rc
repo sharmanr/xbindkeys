@@ -1,0 +1,17 @@
+# This test fails if this line is uncommented:
+# fallback = pass
+
+"xmessage control + button 1 + release"
+    Control + b:1 + Release
+
+"xmessage control + button 2 + release"
+    Control + Release + b:2 
+
+"xmessage control + button 3, not emacs"
+   %EXCLUDE CLASS emacs
+    Control + b:3
+
+
+"killall xmessage"
+	 F9
+ 

@@ -1,0 +1,75 @@
+
+# 1
+"xdotool key --clearmodifiers Left"
+	 control + b
+
+# 2
+"xdotool key --clearmodifiers Right"
+	 control + f
+
+# 3
+"xdotool key --clearmodifiers Home"
+	 control + a
+
+# 4
+"xdotool key --clearmodifiers End"
+	 control + e
+
+
+
+# 5
+"xdotool key --clearmodifiers A"
+	 a
+
+# 6
+"xdotool key B"
+	 b
+
+# 7
+"xdotool key --clearmodifiers C"
+	 c
+
+# 8
+"xdotool key D"
+	 d
+
+
+# 9
+"xdotool key --clearmodifiers Left"
+	 release + control + q
+
+# 10
+"xdotool key --clearmodifiers Right"
+	 release + control + w
+
+# 11
+"xdotool key --clearmodifiers Home"
+	 release + control + r
+
+# 12
+"xdotool key --clearmodifiers End"
+	 release + control + t
+
+
+#13  without the clearmodifiers it sends control shift s
+"xdotool key --clearmodifiers S"
+	 control + s
+
+# 14
+"xdotool key --clearmodifiers D"
+	 control + d
+
+#15
+"xdotool key --clearmodifiers J"
+	 release + control + j
+
+# 16
+"xdotool key --clearmodifiers K"
+	 release + control + k
+
+
+
+"killall xbindkeys"
+	 F12
+
+
