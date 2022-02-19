@@ -1,0 +1,31 @@
+# Run these to see what kind of delay, if any, are to have
+# xbindkeys run xdotool on your setup.
+# On my (slow) HP laptop D usually works, so a delay of 0.2 is good.
+# E often works if pressed and released very quickly.
+
+# If "a" produces an "A" you don't need any delay!
+
+"xdotool key A"
+	 a
+
+"sleep 1.0; xdotool key B"
+	 b
+
+"sleep 0.5; xdotool key C"
+	 c
+
+"sleep 0.2; xdotool key D"
+	 d
+
+"sleep 0.1; xdotool key E"
+	 e
+
+"sleep 0.05; xdotool key F"
+	 f
+
+"sleep 0.02; xdotool key G"
+	 g
+
+"sleep 0.01; xdotool key H"
+	 h
+

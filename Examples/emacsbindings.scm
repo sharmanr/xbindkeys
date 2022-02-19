@@ -1,4 +1,4 @@
-;; Example of som Emacs bindings.
+;; Example of some Emacs bindings.
 ;; Used when the event window is neither emacs nor xterm.
 ;; Add more elements to variable bindings as desired
 ;; The second element of each binding is the replacement key
@@ -10,7 +10,7 @@
 ;; Delay required for xdotool,  you may need to adjust this to 200
 ;; how many milliseconds to sleep before the xdotool command
 ;; (If we are not running the command, do not delay at all.)
-(define ms-sleep 100)
+(define ms-sleep 150)
 
 (define bindings '(
 		   ( (control a) "Home" )
@@ -19,6 +19,7 @@
 		   ( (control f) "Right" )
 		   ( (control p) "Up" )
 		   ( (control n) "Down" )
+		   ( (control d) "Delete" )
 		   ))
 
 (use-modules (ice-9 format)) ;; for format
@@ -44,7 +45,7 @@
     for-us))
 
 (define (generate p)
-  (while (not (nil? p))
+  (while (not (null? p))
   	 (let ((x (car p)))
 	   (display (format #f  "bind ~s to ~s" (car x)(cadr x)))
 	   (newline)

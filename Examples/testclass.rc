@@ -1,0 +1,17 @@
+fallback = pass
+
+
+"xmessage class matches clock"
+%WHEN CLASS XClock
+	F1
+
+"xmessage class matches xterm"
+%WHEN CLASS XTerm
+	F2
+
+"xmessage F3 in xclock or xterm"
+%WHEN CLASS XClock|XTerm
+       F3
+
+"killall xmessage"
+	F9

@@ -1,0 +1,36 @@
+#	button2.rc
+
+# Test button events, with conditions
+
+fallback = pass
+
+# A normal (down) mouse event
+
+"xmessage control button 1"
+%EXCLUDE CLASS emacs
+	 control + b:1
+
+# This does work!  If uncomment fallback = pass it fails
+"xmessage Control Button 2 Release"
+%EXCLUDE CLASS emacs
+	 control + b:2 + release
+
+# In order to capture an release event it seems
+# that we need to have a dummy down event!
+"true"
+%EXCLUDE CLASS emacs
+	 control + b:3 
+
+
+
+# With the above, this should work
+"xmessage control button 3 release"
+%EXCLUDE CLASS emacs
+	 control + b:3 + release
+	 
+
+# control + shift + button 1  in xterm or terminal: remove messages and quit
+"killall xmessage; killall xbindkeys"
+%WHEN CLASS xterm|terminal
+	control + shift + b:1 
+

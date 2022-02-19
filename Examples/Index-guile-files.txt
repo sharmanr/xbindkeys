@@ -1,0 +1,37 @@
+testwinfuncs1.scm
+	Test the window functions, both with an argument and without.
+	The window name/class/command is written to stdout.
+	
+testwinfuncs2.scm		test window functions
+	Test the window function without arguments.
+	The window name/class/command is displayed using xmessage.
+
+testcondition1.scm	simple tests of conditions
+	Depending on the class of the window do different things.
+	Also, show how commands can vary depending on history.
+
+testcondition2.scm	more simple tests of conditions
+	Depending on the class of the window do different things.
+
+
+
+remap1.scm		simple unconditional remapping using xdotool
+	This maps the q key into an a
+	Running xdotool from xbindkeys usually requires a delay, and this
+	file allows easily finding a suitable value.
+
+remap2.scm		remapping using xdotool
+	Turn every other a into a b
+
+remap3.scm		another simple conditional remapping using xdotool
+	Test changing keys conditionally depending on the current window class.
+
+remap4.scm		more  conditional remapping using xdotool
+	Here we test that if the condition fails the original event is seen
+
+
+
+emacsbindings.scm	a realistic example (finally!)
+	Here we rebind some emacs keys unless we are already in a window that
+	already has emacsbindings (emacs, xterm, ...)
+	

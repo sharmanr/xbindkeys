@@ -1,0 +1,20 @@
+I wanted a way of changing keys depending on the program running.  I’ll explain what I mean.  My fingers “know” emacs and it’s hard to use programs where some keybindings are different.  For example, in Firefox I wanted a control-b to go back a character rather than it bringing up bookmarks.  I figured I could use xbindkeys in conjunction with xdotool to translate a control-b to the Left character, but would not want to do that in an emacs window.
+
+So, I allowed the rc file to have an optional condition line between the command and the key, e.g.
+
+“xdotool key —clearmodifiers Left”
+%EXCLUDE CLASS emacs|xterm|xedit
+   control + b
+
+Here, the test is made on the class of the window; if the condition is satisfied the command is executed.   (An alternative would be “%WHEN CLASS firefox|libreoffice” to allow specific window classes.  It can test against a window’s name or command, too.)
+
+For guile files I added a new function, xbindkey-condition-function, that does the test itself (through new guile commands such as window-class) and optionally runs the command.  The function is to return true if the condition was satisfied (and so the command was run) else false.
+
+There were some unexpected complications!  A small delay is needed before running the command if the command is xdotool (otherwise xbindkeys sees the key even though it hasn’t been bound and shouldn’t be getting it I think!).    Also, if the condition was not matched (and the command not run),  the event was lost unless the grab was synchronous.  But making it always synchronous it caused problems such as lockups when debugging with gdb, so I added a way to specify in the control files to allow it.
+
+See the man page that hopefully explains things,  and also the files in directory Examples.  Most of them are tiny sample/demo/test programs, but there is a [guile] file emacsbindings.scm that is actually useful.
+
+Feedback and suggestions are most welcome!
+
+Richard Sharman  Feb 2022
+rsharman@pobox.com

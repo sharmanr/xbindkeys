@@ -1,0 +1,31 @@
+#	button1.rc
+
+# Test button events, no conditions
+
+# A normal (down) mouse event
+
+"xmessage control button 1"
+	 control + b:1
+
+# Because fallback = pass is set, this case doesn't work.
+# I think because the button2 press is passed to the program
+# it captures the release?
+# Compare with button2.rc where this test works.
+"xmessage Control Button 2 Release"
+	 control + b:2 + release
+
+# In order to capture an release event it seems
+# that we need to have a dummy down event!
+"true"
+	 control + b:3 
+
+# With the above, this should work
+"xmessage control button 3 release"
+	 control + b:3 + release
+
+
+# control + shift + button 1  remove messages and quit
+"killall xmessage; killall xbindkeys"
+	control + shift + b:1 
+
+

@@ -1,0 +1,64 @@
+# Test modifiers but not in emacs
+
+fallback = pass
+
+keystate_numlock = enable
+keystate_scrolllock= enable
+keystate_capslock = enable
+
+
+"xmessage F1"
+%EXCLUDE CLASS emacs
+	 F1
+
+
+# For Shift use m:1 or "shift"
+# For Capslock use m:2
+
+"xmessage shift + F1"
+%EXCLUDE CLASS emacs
+	  shift + F1
+
+"xmessage capslock + F1"
+%EXCLUDE CLASS emacs
+	  m:2 + F1
+
+"xmessage control + F1"
+%EXCLUDE CLASS emacs
+	  control + F1
+	  
+"xmessage mod1 +  F1 : Alt"
+%EXCLUDE CLASS emacs
+	 mod1 +  F1
+
+"xmessage mod2 +  F1 : Numlock"
+%EXCLUDE CLASS emacs
+	 mod2 +  F1
+
+"xmessage just Home"c
+%EXCLUDE CLASS emacs
+	 Home
+
+"xmessage mod2 +  Home : Numlock"
+%EXCLUDE CLASS emacs
+	 mod2 +  Home
+
+
+"xmessage mod3 +  F1  "
+%EXCLUDE CLASS emacs
+	 mod3 +  F1
+
+"xmessage mod4 + F1  : Super"
+%EXCLUDE CLASS emacs
+	 mod4 + F1
+
+"xmessage mod5 + F1 :  ScrollLock"
+%EXCLUDE CLASS emacs
+	 mod5 + F1
+
+
+
+"killall xmessage"
+%EXCLUDE CLASS emacs
+	 control + F12
+	 

@@ -1,0 +1,30 @@
+fallback = pass
+
+"xmessage f1"
+	  F1
+
+# Careful!  Hold down F2 for long and there will be lots of these!
+# Also, sometimes it has to be released in a different window from
+# the one it was pressed in (but see F5 for a way around this).
+"xmessage release F2"
+    Release + F2
+
+"xmessage f3 release"
+%EXCLUDE CLASS Emacs
+	  F3 + release
+
+"xmessage f4 release in clock"
+%WHEN CLASS xclock
+	  F4 + release
+
+# use "true" as a do nothing command so that
+# the program doesn't see the press event
+# 
+"true"
+	  F5
+
+"xmessage F5 release"
+	  F5 + release
+	  
+"killall xmessage"
+	 F9

@@ -1,0 +1,41 @@
+# Test condition failure:
+# if condition is true xdotool should fake a different key,
+# if condition is false the original key should be sent
+
+# Necessary for this test:
+fallback = pass
+
+# Note:  it is probably necessary to have a wait, such as this:
+delay 100
+# or invoke with the -y option, e.g. -y 100
+
+
+# Test that a always sends b
+"xdotool key  b"
+	 a
+
+# Test that c sends a d if in xterm (c otherwise)
+"xdotool key d"
+%WHEN CLASS XTerm
+	 c
+
+# Test that e sends an f if not in xterm (an e in xterm)
+"xdotool key f"
+%EXCLUDE CLASS XTerm
+	 e
+	 
+
+# Run these tests if a program that acts on F1, F2, F3
+# Test that F1 key sends a g (unconditionally)
+"xdotool key g"
+	 F1
+
+# Test that F2 key sends an h if in xterm
+"xdotool key h"
+%WHEN CLASS XTerm
+	 F2
+
+# Test that F3 key sends an i if NOT in xterm
+"xdotool key i"
+%EXCLUDE CLASS XTerm
+	 F3
